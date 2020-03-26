@@ -16,53 +16,58 @@ namespace Simcity3000_2
         const float size_y = window_height / map_height;
         static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test");
         static Clock clock = new Clock();
-        
+
         static void Main(string[] args)
         {
             window.SetActive();
             window.SetFramerateLimit(60);
             window.Closed += (_, __) => window.Close();
-            Map map = new Map(map_width, map_height);
-            using TileMap tilemap = new TileMap(map_height, map_width, tileSize: new Vector2f(size_x, size_y));
-            tilemap.SetTilesheet("Assets/ground.tilesheet");
-            
-            Building building = new Building(new Vector2i(3, 3), Color.Red, FootprintBuilder.RectangularFootprint(2, 2));
-
-
-
-
-            map.Buildings.Add(building);
-            map.TilemapChanged += (t)=>UpdateMap(t, tilemap);
             float deltatime;
-            map.SetupTiles();
 
-            using Texture houseTexture = new Texture("Assets/house.png");
-            using RectangleShape buildingRect = new RectangleShape
-            {
-                OutlineColor = Color.Black,
-                Size = new Vector2f(size_x, size_y),
-                Texture = houseTexture
-            };
-            View view = new View(new FloatRect(0,0,window_width, window_height));
+            using IsoTerrain terrain = new IsoTerrain(30, 30, 50);
+            View camera = new View(new FloatRect(-200, -200, window_width, window_height));
             while (window.IsOpen)
             {
-                Vector2i mouse = Mouse.GetPosition(window);
-                view.Size = new Vector2f(window.Size.X, window.Size.Y);
-
-
                 deltatime = clock.Restart().AsSeconds();
-                //window.SetTitle($"{(int)(1/deltatime)} fps");
-                window.SetTitle(mouse.ToString() + "   |    " + window.MapPixelToCoords(mouse));
-                window.Clear();
-                window.SetView(view);
-                window.Draw(tilemap);
-                tilemap.Rotation = 45f;
-                // Draw all buildings
-                foreach (Building b in map.Buildings)
+                window.SetTitle($"{(int)(1 / deltatime)} fps");
+
+                Vector2i mouse = Mouse.GetPosition(window);
+                camera.Size = new Vector2f(window.Size.X, window.Size.Y);
+
+                float speed = -16;
+
+                Vector2f viewCenter = camera.Center;
+                Vector2f halfExtents = camera.Size / 2.0f;
+                Vector2f cameraTopLeft = viewCenter - halfExtents;
+
+                Vector2f resultant = new Vector2f();
+                if (Keyboard.IsKeyPressed(Keyboard.Key.W))
                 {
-                    buildingRect.Position = new Vector2f(size_x * b.TopLeft.X, size_y * b.TopLeft.Y);
-                    window.Draw(buildingRect);
+                    if (camera.Center.Y > 0)
+                        resultant += new Vector2f(0, speed);
                 }
+                if (Keyboard.IsKeyPressed(Keyboard.Key.S))
+                {
+                    resultant += new Vector2f(0, -speed);
+                }
+                if (Keyboard.IsKeyPressed(Keyboard.Key.A))
+                {
+                    if (camera.Center.X > 0)
+                        resultant += new Vector2f(+speed, 0);
+                }
+                if (Keyboard.IsKeyPressed(Keyboard.Key.D))
+                {
+                    resultant += new Vector2f(-speed, 0);
+                }
+
+
+                camera.Move(resultant);
+
+
+                window.Clear(Color.White);
+                window.SetView(camera);
+                window.Draw(terrain);
+
                 window.DispatchEvents();
                 window.Display();
             }
@@ -71,7 +76,7 @@ namespace Simcity3000_2
         static void UpdateMap(Tile[,] tiles, TileMap tileMap)
         {
             using Texture texture = new Texture("Assets/house.png");
-            
+
             for (int x = 0; x < tileMap.Width; x++)
             {
                 for (int y = 0; y < tileMap.Height; y++)
@@ -79,15 +84,15 @@ namespace Simcity3000_2
                     Tile tile = tiles[x, y];
                     tileMap.SetTile(x, y, tile.Terrain switch
                     {
-                        Terrain.Farmland => "grass_1",
-                        Terrain.Flat => "grass_2",
-                        Terrain.Mountain => "grass_3",
+                        Terrain.Farmland => "farm",
+                        Terrain.Flat => "grass",
+                        Terrain.Mountain => "hill",
                         Terrain.Water => "water",
-                        _ => "grass_4"
+                        _ => "grass"
                     });
                 }
             }
-            
+
         }
 
 
