@@ -14,9 +14,11 @@ namespace Simcity3000_2
         const int map_height = 20;
         const float size_x = window_width / map_width;
         const float size_y = window_height / map_height;
-        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test");
+        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test", Styles.Default);
         static Clock clock = new Clock();
-
+        static double zoom = 2;
+        
+        
         static void Main(string[] args)
         {
             window.SetActive();
@@ -24,17 +26,40 @@ namespace Simcity3000_2
             window.Closed += (_, __) => window.Close();
             float deltatime;
 
-            using IsoTerrain terrain = new IsoTerrain(30, 30, 50);
+            using IsoTerrain terrain = new IsoTerrain(200, 200, 32);
             View camera = new View(new FloatRect(-200, -200, window_width, window_height));
+            RectangleShape cursor = new RectangleShape()
+            {
+                Size = new Vector2f(32, 32),
+                FillColor = new Color(255, 0, 0, 100),
+                OutlineColor = Color.Black,
+                OutlineThickness = 1
+            };
+
+            ConvexShape selection = new ConvexShape(4);
+
             while (window.IsOpen)
             {
                 deltatime = clock.Restart().AsSeconds();
                 window.SetTitle($"{(int)(1 / deltatime)} fps");
-
-                Vector2i mouse = Mouse.GetPosition(window);
                 camera.Size = new Vector2f(window.Size.X, window.Size.Y);
 
-                float speed = -16;
+                Vector2i mouse = Mouse.GetPosition(window);
+                Vector2i pos = terrain.GetTileAtWorldCoordinate(window.MapPixelToCoords(mouse));
+                //window.SetTitle(pos.ToString());
+                cursor.Size = new Vector2f(terrain.OffsetX, terrain.OffsetY) * 2;
+                cursor.Position = (Vector2f)window.MapPixelToCoords(mouse);// ( new Vector2f(pos.X * terrain.OffsetX, pos.Y * terrain.OffsetY));
+                cursor.Position -= cursor.Size / 2;
+
+                Vector2f[] selectionVertices = terrain.GetTileVertices(pos.X, pos.Y);
+                selection.SetPoint(0, selectionVertices[0]);
+                selection.SetPoint(1, selectionVertices[1]);
+                selection.SetPoint(2, selectionVertices[2]);
+                selection.SetPoint(3, selectionVertices[3]);
+                selection.OutlineColor = Color.Red;
+                selection.OutlineThickness = 2;
+
+                float speed = -20;
 
                 Vector2f viewCenter = camera.Center;
                 Vector2f halfExtents = camera.Size / 2.0f;
@@ -59,15 +84,23 @@ namespace Simcity3000_2
                 {
                     resultant += new Vector2f(-speed, 0);
                 }
+                if (Keyboard.IsKeyPressed(Keyboard.Key.Q))
+                {
+                    zoom -= 0.1;
+                }
+                else if (Keyboard.IsKeyPressed(Keyboard.Key.E))
+                {
+                    zoom += 0.1;
+                }
 
-
+                camera.Zoom((float)zoom);
                 camera.Move(resultant);
 
-
+                
                 window.Clear(Color.White);
                 window.SetView(camera);
                 window.Draw(terrain);
-
+                window.Draw(selection);
                 window.DispatchEvents();
                 window.Display();
             }
