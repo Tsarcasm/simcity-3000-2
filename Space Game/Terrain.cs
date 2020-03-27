@@ -10,7 +10,7 @@ namespace Simcity3000_2
     {
         Random rng = new Random(1);
         FastNoise noise = new FastNoise();
-        const float minorAngle = 35;
+        const float minorAngle = 40;
 
         public float OffsetY => tileSize * MathF.Sin((minorAngle / 2) * (MathF.PI / 180));
         public float OffsetX => tileSize * MathF.Cos((minorAngle / 2) * (MathF.PI / 180));
@@ -41,7 +41,7 @@ namespace Simcity3000_2
             {
                 for (float x = 0; x < width + 1; x++)
                 {
-                    Heightmap[(int)x, (int)y] = (int)(noise.GetCubicFractal(x * 10f, y * 10f) * -20);
+                    Heightmap[(int)x, (int)y] = (int)(noise.GetPerlinFractal(x * 1, y * 1) * -25);
                 }
             }
         }
@@ -60,8 +60,8 @@ namespace Simcity3000_2
 
         public void MakeQuads()
         {
-            vertices.PrimitiveType = PrimitiveType.Quads;
-            vertices.Resize((uint)(width * height * 4 * 3)); // Resize to the number of tiles * 4 vertices for each tile
+            vertices.PrimitiveType = PrimitiveType.Lines;
+            vertices.Resize((uint)(width * height * 4 * 2)); // Resize to the number of tiles * 4 vertices for each tile
 
             for (int y = width - 1; y >= 0; y--)
             {
@@ -69,7 +69,7 @@ namespace Simcity3000_2
                 {
                     //Quad start index, 2d array to 1d array transformation 
                     //Multiply by 4 as there are 4 vertices for each quad
-                    uint q = (uint)((width - 1 - x + y * height) * 4 * 3);
+                    uint q = (uint)((width - 1 - x + y * height) * 4 * 2);
                     /*
                       1--2
                       |  |
@@ -78,7 +78,7 @@ namespace Simcity3000_2
                      */
 
                     Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
-                    IntRect texCoords = rng.Next(0, 20) switch
+                    IntRect texCoords = rng.Next(4, 20) switch
                     {
                         0 => new IntRect(16, 16, 16, 16),
                         1 => new IntRect(0, 16, 16, 16),
@@ -88,26 +88,43 @@ namespace Simcity3000_2
 
                     Vector2f[] tileVertices = GetTileVertices(x, y);
 
-                    vertices[q + 0] = new Vertex(tileVertices[0],
-                        new Vector2f(texCoords.Left, texCoords.Top));
+                    vertices[q + 0] = new Vertex(tileVertices[0], Color.Black,
+                    new Vector2f(texCoords.Left, texCoords.Top));
 
                     vertices[q + 1] =
-                        new Vertex(tileVertices[1],
+                        new Vertex(tileVertices[1], Color.Black,
                         new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
 
                     vertices[q + 2] =
-                        new Vertex(tileVertices[2],
-                        new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
+                        new Vertex(tileVertices[2], Color.Black,
+                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
 
                     vertices[q + 3] =
-                        new Vertex(tileVertices[3],
-                        new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
+                        new Vertex(tileVertices[3], Color.Black,
+                    new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
+
+                    vertices[q + 4] =
+                            new Vertex(tileVertices[1], Color.Black,
+                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
+
+                    vertices[q + 5] =
+                        new Vertex(tileVertices[2], Color.Black,
+                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
+
+                    vertices[q + 6] =
+                            new Vertex(tileVertices[3], Color.Black,
+                   new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
+
+                    vertices[q + 7] =
+                        new Vertex(tileVertices[0], Color.Black,
+                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
+
+
 
 
                 }
             }
         }
-
 
         public void Draw(RenderTarget target, RenderStates states)
         {
@@ -122,18 +139,18 @@ namespace Simcity3000_2
 
         }
 
-
         const int searchRadius = 10;
-        public Vector2i GetTileAtWorldCoordinate(Vector2f coords)
+        public Vector2i WorldCoordinateToTile(Vector2f coords)
         {
             float x = -MathF.Floor((coords.Y / OffsetY) - (coords.X / OffsetX)) / 2;
             float y = MathF.Floor((coords.Y / OffsetY) + (coords.X / OffsetX)) / 2;
 
-            for (int _y = Math.Max((int)y - searchRadius, 0); _y < Math.Min(width, y + searchRadius); _y++)
+            for (int _x = Math.Max((int)x - searchRadius, 0); _x < Math.Min(width, x + searchRadius); _x++)
             {
-                for (int _x = Math.Max((int)x - searchRadius, 0); _x < Math.Min(width, x + searchRadius); _x++)
+                for (int _y = Math.Max((int)y - searchRadius, 0); _y < Math.Min(width, y + searchRadius); _y++)
                 {
-                    if (MathHelper.PointInPolygon(GetTileVertices(_x,_y), coords)) {
+                    if (MathHelper.PointInPolygon(GetTileVertices(_x, _y), coords))
+                    {
                         return new Vector2i(_x, _y);
                     }
                 }
@@ -146,11 +163,36 @@ namespace Simcity3000_2
             //float X = (coords.X - OffsetX / 2) / (OffsetX * 1);
             //float Y = (coords.Y - OffsetY / 2) / (OffsetY * 1);
         }
+        public float GetTileHeight(int x, int y)
+        {
+            if (!InBounds(x, y)) return -1;
+            return (
+                Heightmap[x, y] +
+                Heightmap[x + 1, y] +
+                Heightmap[x, y + 1] +
+                Heightmap[x + 1, y + 1]
+                ) / 4;
+        }
+        public float GetTileHeight(Vector2i pos)
+        {
+            return GetTileHeight(pos.X, pos.Y);
+        }
 
+        public void SetTileHeight(Vector2i pos, int height)
+        {
+            if (!InBounds(pos.X, pos.Y)) return;
+            int x = pos.X;
+            int y = pos.Y;
+            Heightmap[x, y] = height;
+            Heightmap[x + 1, y] = height;
+            Heightmap[x, y + 1] = height;
+            Heightmap[x + 1, y + 1] = height;
+            MakeQuads();
+        }
         public Vector2f[] GetTileVertices(int x, int y)
         {
             Vector2f[] coords = new Vector2f[4];
-            if (x >= 0 && x < width && y >= 0 && y < height)
+            if (InBounds(x, y))
             {
                 Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
 
@@ -161,5 +203,7 @@ namespace Simcity3000_2
             }
             return coords;
         }
+
+        private bool InBounds(int x, int y) => (x >= 0 && x < width && y >= 0 && y < height);
     }
 }

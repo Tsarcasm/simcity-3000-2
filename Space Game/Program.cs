@@ -14,30 +14,33 @@ namespace Simcity3000_2
         const int map_height = 20;
         const float size_x = window_width / map_width;
         const float size_y = window_height / map_height;
-        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test", Styles.Default);
+        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test", Styles.Default, new ContextSettings() { AntialiasingLevel = 8 });
         static Clock clock = new Clock();
         static double zoom = 2;
         
         
         static void Main(string[] args)
         {
+            using IsoTerrain terrain = new IsoTerrain(200, 200, 32);
+            ConvexShape selection = new ConvexShape(4);
+            Vector2i selectedTile = new Vector2i(0,0);
+
             window.SetActive();
             window.SetFramerateLimit(60);
             window.Closed += (_, __) => window.Close();
+            window.KeyReleased += (_, k)=> {
+                if (k.Code == Keyboard.Key.Up)
+                {
+                    terrain.SetTileHeight(selectedTile, (int)MathF.Ceiling(terrain.GetTileHeight(selectedTile)) + 1);
+                }
+                if (k.Code == Keyboard.Key.Down)
+                {
+                    terrain.SetTileHeight(selectedTile, (int)MathF.Ceiling(terrain.GetTileHeight(selectedTile)) - 1);
+                }
+            };
             float deltatime;
 
-            using IsoTerrain terrain = new IsoTerrain(200, 200, 32);
             View camera = new View(new FloatRect(-200, -200, window_width, window_height));
-            RectangleShape cursor = new RectangleShape()
-            {
-                Size = new Vector2f(32, 32),
-                FillColor = new Color(255, 0, 0, 100),
-                OutlineColor = Color.Black,
-                OutlineThickness = 1
-            };
-
-            ConvexShape selection = new ConvexShape(4);
-
             while (window.IsOpen)
             {
                 deltatime = clock.Restart().AsSeconds();
@@ -45,19 +48,16 @@ namespace Simcity3000_2
                 camera.Size = new Vector2f(window.Size.X, window.Size.Y);
 
                 Vector2i mouse = Mouse.GetPosition(window);
-                Vector2i pos = terrain.GetTileAtWorldCoordinate(window.MapPixelToCoords(mouse));
-                //window.SetTitle(pos.ToString());
-                cursor.Size = new Vector2f(terrain.OffsetX, terrain.OffsetY) * 2;
-                cursor.Position = (Vector2f)window.MapPixelToCoords(mouse);// ( new Vector2f(pos.X * terrain.OffsetX, pos.Y * terrain.OffsetY));
-                cursor.Position -= cursor.Size / 2;
+                selectedTile = terrain.WorldCoordinateToTile(window.MapPixelToCoords(mouse));
+                window.SetTitle($"Tile height: {terrain.GetTileHeight(selectedTile)}m");
 
-                Vector2f[] selectionVertices = terrain.GetTileVertices(pos.X, pos.Y);
+                Vector2f[] selectionVertices = terrain.GetTileVertices(selectedTile.X, selectedTile.Y);
                 selection.SetPoint(0, selectionVertices[0]);
                 selection.SetPoint(1, selectionVertices[1]);
                 selection.SetPoint(2, selectionVertices[2]);
                 selection.SetPoint(3, selectionVertices[3]);
                 selection.OutlineColor = Color.Red;
-                selection.OutlineThickness = 2;
+                selection.OutlineThickness = 1f;
 
                 float speed = -20;
 
@@ -103,6 +103,14 @@ namespace Simcity3000_2
                 window.Draw(selection);
                 window.DispatchEvents();
                 window.Display();
+            }
+        }
+
+        private static void Window_KeyReleased(object sender, KeyEventArgs e)
+        {
+            if (e.Code == Keyboard.Key.Up)
+            {
+
             }
         }
 
