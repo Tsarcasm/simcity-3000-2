@@ -10,34 +10,54 @@ namespace Simcity3000_2
     {
         const int window_width = 1000;
         const int window_height = 1000;
-        const int map_width = 20;
-        const int map_height = 20;
+        const int map_width = 300;
+        const int map_height = 300;
         const float size_x = window_width / map_width;
         const float size_y = window_height / map_height;
-        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test", Styles.Default, new ContextSettings() { AntialiasingLevel = 8 });
+        static RenderWindow window = new RenderWindow(new VideoMode(window_width, window_height), "test", Styles.Default, new ContextSettings() { AntialiasingLevel = 0 });
         static Clock clock = new Clock();
         static double zoom = 2;
-        
-        
+
+
         static void Main(string[] args)
         {
-            using IsoTerrain terrain = new IsoTerrain(200, 200, 32);
+            SpriteSheet terrainSprites = new SpriteSheet("Assets/ground.tilesheet");
+            using IsoTerrain terrain = new IsoTerrain(30, 30, 32, terrainSprites);
             ConvexShape selection = new ConvexShape(4);
-            Vector2i selectedTile = new Vector2i(0,0);
+            selection.OutlineColor = Color.Black;
+            selection.OutlineThickness = 1;
 
+            Vector2i selectedTile = new Vector2i(0, 0);
+            RectangleShape house = new RectangleShape()
+            {
+                Size = new Vector2f(terrain.OffsetX*2, terrain.OffsetX * 2),
+                Texture = new Texture("Assets/buildings.png"),
+                OutlineColor = Color.Black,
+                OutlineThickness = 1
+            };
             window.SetActive();
             window.SetFramerateLimit(60);
             window.Closed += (_, __) => window.Close();
-            window.KeyReleased += (_, k)=> {
-                if (k.Code == Keyboard.Key.Up)
+            window.KeyReleased += (_, k) =>
+            {
+                switch (k.Code)
                 {
-                    terrain.SetTileHeight(selectedTile, (int)MathF.Ceiling(terrain.GetTileHeight(selectedTile)) + 1);
-                }
-                if (k.Code == Keyboard.Key.Down)
-                {
-                    terrain.SetTileHeight(selectedTile, (int)MathF.Ceiling(terrain.GetTileHeight(selectedTile)) - 1);
+                    case Keyboard.Key.R:
+                        terrain.SetTileSprite(selectedTile.X, selectedTile.Y, "road");
+                        break;
+                    case Keyboard.Key.Space:
+                        int[] heights = terrain.GetTileHeights(selectedTile.X, selectedTile.Y);
+                        int newHeight = Math.Min(Math.Min(heights[0], heights[1]), Math.Min(heights[2], heights[3]));
+                        terrain.SetTileHeight(selectedTile, newHeight + 1);
+                        break;
                 }
             };
+            window.MouseButtonReleased += (_, m) =>
+            {
+                Vector2f[] positions = terrain.GetTileVertices(selectedTile.X, selectedTile.Y);
+                house.Position = positions[0] - new Vector2f(0, house.Size.Y - terrain.OffsetY);
+            };
+
             float deltatime;
 
             View camera = new View(new FloatRect(-200, -200, window_width, window_height));
@@ -49,7 +69,6 @@ namespace Simcity3000_2
 
                 Vector2i mouse = Mouse.GetPosition(window);
                 selectedTile = terrain.WorldCoordinateToTile(window.MapPixelToCoords(mouse));
-                window.SetTitle($"Tile height: {terrain.GetTileHeight(selectedTile)}m");
 
                 Vector2f[] selectionVertices = terrain.GetTileVertices(selectedTile.X, selectedTile.Y);
                 selection.SetPoint(0, selectionVertices[0]);
@@ -96,11 +115,18 @@ namespace Simcity3000_2
                 camera.Zoom((float)zoom);
                 camera.Move(resultant);
 
-                
+
                 window.Clear(Color.White);
                 window.SetView(camera);
+                
+
+
                 window.Draw(terrain);
                 window.Draw(selection);
+
+
+
+                window.Draw(house);
                 window.DispatchEvents();
                 window.Display();
             }
@@ -114,43 +140,7 @@ namespace Simcity3000_2
             }
         }
 
-        static void UpdateMap(Tile[,] tiles, TileMap tileMap)
-        {
-            using Texture texture = new Texture("Assets/house.png");
-
-            for (int x = 0; x < tileMap.Width; x++)
-            {
-                for (int y = 0; y < tileMap.Height; y++)
-                {
-                    Tile tile = tiles[x, y];
-                    tileMap.SetTile(x, y, tile.Terrain switch
-                    {
-                        Terrain.Farmland => "farm",
-                        Terrain.Flat => "grass",
-                        Terrain.Mountain => "hill",
-                        Terrain.Water => "water",
-                        _ => "grass"
-                    });
-                }
-            }
-
-        }
-
-
-        static void DrawTile(int x, int y, Map map, RectangleShape tileRect)
-        {
-            Tile tile = map.Tiles[x, y];
-            tileRect.Position = new Vector2f(size_x * tile.Position.X, size_y * tile.Position.Y);
-            tileRect.FillColor = tile.Terrain switch
-            {
-                Terrain.Farmland => Color.Yellow,
-                Terrain.Mountain => new Color(200, 200, 200),
-                Terrain.Water => Color.Blue,
-                Terrain.Flat => Color.Green,
-                _ => Color.Magenta,
-            };
-            window.Draw(tileRect);
-        }
+        
 
 
     }

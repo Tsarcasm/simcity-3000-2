@@ -8,35 +8,56 @@ namespace Simcity3000_2
 {
     class IsoTerrain : Transformable, Drawable
     {
-        Random rng = new Random(1);
-        FastNoise noise = new FastNoise();
-        const float minorAngle = 40;
+        readonly Random rng = new Random(1);
+        readonly FastNoise noise = new FastNoise();
+        const float minorAngle = 45;
 
         public float OffsetY => tileSize * MathF.Sin((minorAngle / 2) * (MathF.PI / 180));
         public float OffsetX => tileSize * MathF.Cos((minorAngle / 2) * (MathF.PI / 180));
 
         public int[,] Heightmap { get; set; }
-
+        Tile[,] tiles { get; set; }
         VertexArray vertices = new VertexArray();
-        int width, height;
+        public int width, height;
         float tileSize;
-        Texture texture;
-        public IsoTerrain(int width, int height, float tileSize)
+        SpriteSheet terrainSprites;
+        public IsoTerrain(int width, int height, float tileSize, SpriteSheet terrainSprites)
         {
             this.width = width;
             this.height = height;
             this.tileSize = tileSize;
-            texture = new Texture("Assets/ground.png");
+            this.terrainSprites = terrainSprites;
+
+            Heightmap = new int[width + 1, height + 1];
+            tiles = new Tile[width, height];
+            MakeTiles();
             MakeHeightmap();
             MakeQuads();
         }
 
-
-        public void MakeHeightmap()
+        public void SetTileSprite(int x, int y, string sprite)
         {
-            //total vertices = (width + 1) * (height + 1)
-            Heightmap = new int[width + 1, height + 1];
-            //return;
+            if (InBounds(x, y))
+            {
+                tiles[x, y].Sprite = sprite;
+                UpdateQuad(x, y);
+            }
+        }
+
+        void MakeTiles()
+        {
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    tiles[x, y] = new Tile() { Sprite = "grass" };
+                }
+            }
+        }
+
+
+        void MakeHeightmap()
+        {
             for (float y = 0; y < height + 1; y++)
             {
                 for (float x = 0; x < width + 1; x++)
@@ -46,82 +67,63 @@ namespace Simcity3000_2
             }
         }
 
-        Vector2f QuadVertexHeight(int x, int y, int v)
+        public int[] GetTileHeights(int x, int y)
         {
-            return new Vector2f(0, -10 * v switch
+            return new int[]
             {
-                0 => Heightmap[x, y],
-                1 => Heightmap[x, y + 1],
-                2 => Heightmap[x + 1, y + 1],
-                3 => Heightmap[x + 1, y],
-                _ => 0
-            });
+                Heightmap[x, y],
+                 Heightmap[x, y+1],
+                Heightmap[x+1, y+1],
+                 Heightmap[x+1, y]
+            };
+        }
+
+
+
+        void UpdateQuad(int x, int y)
+        {
+            //Quad start index, 2d array to 1d array transformation 
+            //Multiply by 4 as there are 4 vertices for each quad
+            uint q = (uint)((width - 1 - x + y * height) * 4);
+            /*
+              1--2
+              |  |
+              0--3
+
+             */
+            Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
+            IntRect texCoords = terrainSprites.GetSprite(tiles[x, y].Sprite);
+
+            Vector2f[] tileVertices = GetTileVertices(x, y);
+
+            vertices[q + 0] = new Vertex(tileVertices[0],
+                new Vector2f(texCoords.Left, texCoords.Top));
+
+            vertices[q + 1] =
+                new Vertex(tileVertices[1],
+                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
+
+            vertices[q + 2] =
+                new Vertex(tileVertices[2],
+                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
+
+            vertices[q + 3] =
+                new Vertex(tileVertices[3],
+                new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
+
+
         }
 
         public void MakeQuads()
         {
-            vertices.PrimitiveType = PrimitiveType.Lines;
-            vertices.Resize((uint)(width * height * 4 * 2)); // Resize to the number of tiles * 4 vertices for each tile
+            vertices.PrimitiveType = PrimitiveType.Quads;
+            vertices.Resize((uint)(width * height * 4)); // Resize to the number of tiles * 4 vertices for each tile
 
             for (int y = width - 1; y >= 0; y--)
             {
                 for (int x = height - 1; x >= 0; x--)
                 {
-                    //Quad start index, 2d array to 1d array transformation 
-                    //Multiply by 4 as there are 4 vertices for each quad
-                    uint q = (uint)((width - 1 - x + y * height) * 4 * 2);
-                    /*
-                      1--2
-                      |  |
-                      0--3
-
-                     */
-
-                    Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
-                    IntRect texCoords = rng.Next(4, 20) switch
-                    {
-                        0 => new IntRect(16, 16, 16, 16),
-                        1 => new IntRect(0, 16, 16, 16),
-                        2 => new IntRect(16, 0, 16, 16),
-                        _ => new IntRect(0, 0, 16, 16)
-                    };
-
-                    Vector2f[] tileVertices = GetTileVertices(x, y);
-
-                    vertices[q + 0] = new Vertex(tileVertices[0], Color.Black,
-                    new Vector2f(texCoords.Left, texCoords.Top));
-
-                    vertices[q + 1] =
-                        new Vertex(tileVertices[1], Color.Black,
-                        new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
-
-                    vertices[q + 2] =
-                        new Vertex(tileVertices[2], Color.Black,
-                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
-
-                    vertices[q + 3] =
-                        new Vertex(tileVertices[3], Color.Black,
-                    new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
-
-                    vertices[q + 4] =
-                            new Vertex(tileVertices[1], Color.Black,
-                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
-
-                    vertices[q + 5] =
-                        new Vertex(tileVertices[2], Color.Black,
-                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
-
-                    vertices[q + 6] =
-                            new Vertex(tileVertices[3], Color.Black,
-                   new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
-
-                    vertices[q + 7] =
-                        new Vertex(tileVertices[0], Color.Black,
-                    new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
-
-
-
-
+                    UpdateQuad(x, y);
                 }
             }
         }
@@ -133,9 +135,14 @@ namespace Simcity3000_2
             states.Transform *= Transform;
 
             // apply the tileset texture
-            states.Texture = texture;
+            states.Texture = terrainSprites.Texture;
             // draw the vertex array
+            vertices.PrimitiveType = PrimitiveType.Quads;
             target.Draw(vertices, states);
+
+            vertices.PrimitiveType = PrimitiveType.Lines;
+            states.Texture = null;
+            //target.Draw(vertices, states);
 
         }
 
@@ -163,20 +170,6 @@ namespace Simcity3000_2
             //float X = (coords.X - OffsetX / 2) / (OffsetX * 1);
             //float Y = (coords.Y - OffsetY / 2) / (OffsetY * 1);
         }
-        public float GetTileHeight(int x, int y)
-        {
-            if (!InBounds(x, y)) return -1;
-            return (
-                Heightmap[x, y] +
-                Heightmap[x + 1, y] +
-                Heightmap[x, y + 1] +
-                Heightmap[x + 1, y + 1]
-                ) / 4;
-        }
-        public float GetTileHeight(Vector2i pos)
-        {
-            return GetTileHeight(pos.X, pos.Y);
-        }
 
         public void SetTileHeight(Vector2i pos, int height)
         {
@@ -195,15 +188,22 @@ namespace Simcity3000_2
             if (InBounds(x, y))
             {
                 Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
-
-                coords[0] = start + QuadVertexHeight(x, y, 0);
-                coords[1] = start + new Vector2f(OffsetX, OffsetY) + QuadVertexHeight(x, y, 1);
-                coords[2] = start + new Vector2f(OffsetX * 2, 0) + QuadVertexHeight(x, y, 2);
-                coords[3] = start + new Vector2f(OffsetX, -OffsetY) + QuadVertexHeight(x, y, 3);
+                const int heightMod = -10;
+                int[] heights = GetTileHeights(x, y);
+                coords[0] = start + new Vector2f(0, heights[0] * heightMod);
+                coords[1] = start + new Vector2f(OffsetX, OffsetY + heights[1] * heightMod);
+                coords[2] = start + new Vector2f(OffsetX * 2, 0 + heights[2] * heightMod);
+                coords[3] = start + new Vector2f(OffsetX, -OffsetY + heights[3] * heightMod);
             }
             return coords;
         }
 
         private bool InBounds(int x, int y) => (x >= 0 && x < width && y >= 0 && y < height);
+
+    }
+
+    class Tile
+    {
+        public string Sprite { get; set; }
     }
 }
