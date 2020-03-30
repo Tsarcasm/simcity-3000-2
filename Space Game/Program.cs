@@ -22,7 +22,7 @@ namespace Simcity3000_2
         static void Main(string[] args)
         {
             SpriteSheet terrainSprites = new SpriteSheet("Assets/ground.tilesheet");
-            using IsoTerrain terrain = new IsoTerrain(30, 30, 32, terrainSprites);
+            using IsoTerrain terrain = new IsoTerrain(320, 320, 32, terrainSprites);
             ConvexShape selection = new ConvexShape(4);
             selection.OutlineColor = Color.Black;
             selection.OutlineThickness = 1;

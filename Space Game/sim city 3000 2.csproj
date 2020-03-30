@@ -11,6 +11,7 @@
     <None Remove="Assets\buildings.tilesheet" />
     <None Remove="Assets\ground.png" />
     <None Remove="Assets\ground.tilesheet" />
+    <None Remove="Assets\heights.png" />
     <None Remove="Assets\house.png" />
     <None Remove="Assets\road.png" />
   </ItemGroup>
@@ -34,6 +35,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\ground.tilesheet">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\heights.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Assets\road.png">

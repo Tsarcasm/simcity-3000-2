@@ -12,15 +12,17 @@ namespace Simcity3000_2
         readonly FastNoise noise = new FastNoise();
         const float minorAngle = 45;
 
-        public float OffsetY => tileSize * MathF.Sin((minorAngle / 2) * (MathF.PI / 180));
-        public float OffsetX => tileSize * MathF.Cos((minorAngle / 2) * (MathF.PI / 180));
+        public float OffsetX { get; private set; }
+        public float OffsetY { get; private set; }
 
         public int[,] Heightmap { get; set; }
-        Tile[,] tiles { get; set; }
-        VertexArray vertices = new VertexArray();
+        public Tile[,] tiles { get; set; }
+
+        TerrainLayer[] terrainLayers;
         public int width, height;
         float tileSize;
-        SpriteSheet terrainSprites;
+        public SpriteSheet terrainSprites { get; protected set; }
+
         public IsoTerrain(int width, int height, float tileSize, SpriteSheet terrainSprites)
         {
             this.width = width;
@@ -28,6 +30,11 @@ namespace Simcity3000_2
             this.tileSize = tileSize;
             this.terrainSprites = terrainSprites;
 
+            OffsetX = tileSize * MathF.Cos((minorAngle / 2) * (MathF.PI / 180));
+            OffsetY = tileSize * MathF.Sin((minorAngle / 2) * (MathF.PI / 180));
+
+            terrainLayers = new TerrainLayer[15];
+            for (int i = 0; i < terrainLayers.Length; i++) terrainLayers[i] = new TerrainLayer(this);
             Heightmap = new int[width + 1, height + 1];
             tiles = new Tile[width, height];
             MakeTiles();
@@ -62,7 +69,7 @@ namespace Simcity3000_2
             {
                 for (float x = 0; x < width + 1; x++)
                 {
-                    Heightmap[(int)x, (int)y] = (int)(noise.GetPerlinFractal(x * 1, y * 1) * -25);
+                    Heightmap[(int)x, (int)y] = (int)(noise.GetPerlinFractal(x * 1, y * 1) * 15) + 5;
                 }
             }
         }
@@ -78,56 +85,39 @@ namespace Simcity3000_2
             };
         }
 
-
-
         void UpdateQuad(int x, int y)
         {
-            //Quad start index, 2d array to 1d array transformation 
-            //Multiply by 4 as there are 4 vertices for each quad
-            uint q = (uint)((width - 1 - x + y * height) * 4);
-            /*
-              1--2
-              |  |
-              0--3
+            GetTileLayer(x, y).UpdateTile(x, y);
+        }
 
-             */
-            Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
-            IntRect texCoords = terrainSprites.GetSprite(tiles[x, y].Sprite);
+        TerrainLayer GetTileLayer(int x, int y)
+        {
 
-            Vector2f[] tileVertices = GetTileVertices(x, y);
-
-            vertices[q + 0] = new Vertex(tileVertices[0],
-                new Vector2f(texCoords.Left, texCoords.Top));
-
-            vertices[q + 1] =
-                new Vertex(tileVertices[1],
-                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
-
-            vertices[q + 2] =
-                new Vertex(tileVertices[2],
-                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
-
-            vertices[q + 3] =
-                new Vertex(tileVertices[3],
-                new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
-
+            int[] heights = GetTileHeights(x, y);
+            //Determine if the tile is backward facing
+            if (heights[3] < heights[1])
+            {
+                return terrainLayers[Math.Min(Math.Min(heights[0], heights[1]), Math.Min(heights[2], heights[3]))];
+            }
+            else
+            {
+                return terrainLayers[Math.Max(Math.Max(heights[0], heights[1]), Math.Max(heights[2], heights[3]))];
+            }
 
         }
 
         public void MakeQuads()
         {
-            vertices.PrimitiveType = PrimitiveType.Quads;
-            vertices.Resize((uint)(width * height * 4)); // Resize to the number of tiles * 4 vertices for each tile
-
-            for (int y = width - 1; y >= 0; y--)
+            for (int y = height - 1; y >= 0; y--)
             {
-                for (int x = height - 1; x >= 0; x--)
+                for (int x = width - 1; x >= 0; x--)
                 {
                     UpdateQuad(x, y);
                 }
             }
         }
 
+        int i = 0;
         public void Draw(RenderTarget target, RenderStates states)
         {
 
@@ -135,14 +125,22 @@ namespace Simcity3000_2
             states.Transform *= Transform;
 
             // apply the tileset texture
-            states.Texture = terrainSprites.Texture;
             // draw the vertex array
-            vertices.PrimitiveType = PrimitiveType.Quads;
-            target.Draw(vertices, states);
-
-            vertices.PrimitiveType = PrimitiveType.Lines;
-            states.Texture = null;
-            //target.Draw(vertices, states);
+            //target.Draw(terrainLayers[i], states);
+            //i++;
+            //if (i == terrainLayers.Length)
+            //{
+            //    i = 0;
+            //}
+            MakeQuads();
+            for (int i = 0; i < terrainLayers.Length; i++)
+            //for (int i = terrainLayers.Length - 1; i >= 0; i--)
+            {
+                using Texture texture = new Texture("Assets/heights.png", new IntRect((i % 8) * 16, 0, 16, 16));
+                states.Texture = texture;
+                //states.Texture = terrainSprites.Texture;
+                target.Draw(terrainLayers[i], states);
+            }
 
         }
 
@@ -171,15 +169,36 @@ namespace Simcity3000_2
             //float Y = (coords.Y - OffsetY / 2) / (OffsetY * 1);
         }
 
+        Vector2i[] GetAdjacentTiles(int x, int y)
+        {
+            List<Vector2i> adj = new List<Vector2i>();
+            for (int _y = y - 1; _y < y + 2; _y++)
+            {
+                for (int _x = x - 1; _x < x + 2; _x++)
+                {
+                    if (InBounds(_x, _y)) adj.Add(new Vector2i(_x, _y));
+                }
+            }
+            return adj.ToArray();
+        }
+
         public void SetTileHeight(Vector2i pos, int height)
         {
             if (!InBounds(pos.X, pos.Y)) return;
             int x = pos.X;
             int y = pos.Y;
+            //foreach (var tile in GetAdjacentTiles(x, y))
+            //{
+            //    GetTileLayer(tile.X, tile.Y).RemoveTile(tile.X, tile.Y);
+            //}
             Heightmap[x, y] = height;
             Heightmap[x + 1, y] = height;
             Heightmap[x, y + 1] = height;
             Heightmap[x + 1, y + 1] = height;
+            foreach (var layer in terrainLayers)
+            {
+                layer.Clear();
+            }
             MakeQuads();
         }
         public Vector2f[] GetTileVertices(int x, int y)
@@ -201,6 +220,100 @@ namespace Simcity3000_2
         private bool InBounds(int x, int y) => (x >= 0 && x < width && y >= 0 && y < height);
 
     }
+
+    class TerrainLayer : Drawable
+    {
+        VertexArray vertices;
+        IsoTerrain terrain;
+        IDictionary<(int, int), uint> tiles;
+        public TerrainLayer(IsoTerrain terrain)
+        {
+            this.terrain = terrain;
+            tiles = new Dictionary<(int, int), uint>();
+            vertices = new VertexArray();
+            vertices.PrimitiveType = PrimitiveType.Quads;
+        }
+
+        public void Clear()
+        {
+            vertices.Resize(0);
+            tiles.Clear();
+        }
+
+        void MakeQuad(int x, int y, uint q)
+        {
+            Vector2f start = new Vector2f(y * terrain.OffsetX + x * terrain.OffsetX, x * -terrain.OffsetY + y * terrain.OffsetY);
+            IntRect texCoords = terrain.terrainSprites.GetSprite(terrain.tiles[x, y].Sprite);
+
+            Vector2f[] tileVertices = terrain.GetTileVertices(x, y);
+
+            vertices[q + 0] = new Vertex(tileVertices[0],
+                new Vector2f(texCoords.Left, texCoords.Top));
+
+            vertices[q + 1] =
+                new Vertex(tileVertices[1],
+                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
+
+            vertices[q + 2] =
+                new Vertex(tileVertices[3],
+                new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
+
+            vertices[q + 3] =
+               new Vertex(tileVertices[1],
+               new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top));
+
+            vertices[q + 4] =
+                new Vertex(tileVertices[2],
+                new Vector2f(texCoords.Left + texCoords.Width, texCoords.Top + texCoords.Height));
+
+            vertices[q + 5] =
+                new Vertex(tileVertices[3],
+                new Vector2f(texCoords.Left, texCoords.Top + texCoords.Height));
+
+
+        }
+        public void UpdateTile(int x, int y)
+        {
+            if (tiles.TryGetValue((x, y), out uint q))
+            {
+                MakeQuad(x, y, q);
+            }
+            else
+            {
+                AddTile(x, y);
+            }
+        }
+        private void AddTile(int x, int y)
+        {
+            uint q = vertices.VertexCount;
+            vertices.Resize(q + 6);
+            MakeQuad(x, y, q);
+            tiles.Add((x, y), q);
+        }
+
+        public void RemoveTile(int x, int y)
+        {
+            //vertices.Resize(vertices.VertexCount - 4);
+            //tiles.Clear();
+            uint q = tiles[(x, y)];
+            tiles.Remove((x, y));
+
+            vertices[q + 0] = new Vertex(new Vector2f(0, 0));
+            vertices[q + 1] = new Vertex(new Vector2f(0, 0));
+            vertices[q + 2] = new Vertex(new Vector2f(0, 0));
+            vertices[q + 3] = new Vertex(new Vector2f(0, 0));
+        }
+
+        public void Draw(RenderTarget target, RenderStates states)
+        {
+            vertices.PrimitiveType = PrimitiveType.Triangles;
+            target.Draw(vertices, states);
+            //vertices.PrimitiveType = PrimitiveType.Lines;
+            //target.Draw(vertices);
+        }
+    }
+
+
 
     class Tile
     {
