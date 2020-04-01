@@ -1,25 +1,72 @@
-﻿using SFML.System;
+﻿using SFML.Graphics;
+using SFML.System;
 using System;
 using System.Collections.Generic;
 
 namespace Simcity3000_2
 {
-    class Map
+    class Map : Drawable
     {
-        //public int Width { get; }
-        //public int Height { get; }
+        public int Width { get; }
+        public int Height { get; }
 
-        //public Tile[,] Tiles;
-        //public ICollection<Building> Buildings;
+        public Tile[,] Tiles;
+        public ICollection<Structure> Structures;
 
-        //public Map(int width, int height)
-        //{
-        //    Width = width;
-        //    Height = height;
-        //    Tiles = new Tile[width, height];
-        //    Buildings = new List<Building>();
-        //    SetupTiles();
-        //}
+        IsoTerrain terrain;
+        public Map(int width, int height, Spritesheet terrainSprites)
+        {
+            Width = width;
+            Height = height;
+            Tiles = new Tile[width, height];
+            SetupTiles();
+            terrain = new IsoTerrain(width, height, 50, terrainSprites, Tiles);
+
+        }
+
+        void SetupTiles()
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                for (int x = 0; x < Width; x++)
+                {
+                    Tiles[x, y] = new Tile() { GroundSprite = "grass" };
+                }
+            }
+        }
+
+
+        public void Update(float deltatime)
+        {
+
+        }
+
+        public void Draw(RenderTarget target, RenderStates states)
+        {
+            void DrawTile(int x, int y)
+            {
+                Tile tile = Tiles[x, y];
+                // First draw the building
+
+                if (tile.Structure?.TopLeft == new Vector2i(x,y))
+                {
+                    
+                }
+            }
+
+            target.Draw(terrain);
+            for (int y = 0; y < Height; y++)
+            {
+                for (int x = 0; x < Width; x++)
+                {
+                    DrawTile(x, y);
+                }
+            }
+
+            
+        }
+
+        
 
         //public void SetupTiles()
         //{

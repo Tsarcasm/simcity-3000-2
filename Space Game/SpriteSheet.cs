@@ -7,11 +7,11 @@ using System.Text;
 
 namespace Simcity3000_2
 {
-    public class SpriteSheet
+    public class Spritesheet
     {
         public Texture Texture { get; protected set; }
         readonly Dictionary<String, IntRect> sprites;
-        public SpriteSheet(string path)
+        public Spritesheet(string path)
         {
             sprites = new Dictionary<string, IntRect>();
             LoadSpritesheet(path);

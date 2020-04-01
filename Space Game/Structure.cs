@@ -3,7 +3,7 @@ using SFML.System;
 
 namespace Simcity3000_2
 {
-    class Building : IFootprint
+    class Structure : Entity, IFootprint
     {
         public Vector2i Size { get; }
         public Vector2i TopLeft { get; }
@@ -11,8 +11,7 @@ namespace Simcity3000_2
 
         public bool[,] Footprint { get; }
 
-        public Building(Vector2i topLeft, Color color, bool[,] footprint)
-        {
+        public Structure(Vector2i topLeft, Color color, bool[,] footprint) { 
             this.TopLeft = topLeft;
             this.Color = color;
             this.Footprint = footprint;
