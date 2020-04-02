@@ -31,9 +31,11 @@ namespace Simcity3000_2
         public void LoadSpritesheet(string path)
         {
             using StreamReader sr = new StreamReader(path);
+            Dictionary<string, int> symbols = new Dictionary<string, int>();
             String imagePath = sr.ReadLine().Trim();
+            loadSymbols(sr.ReadLine().Trim());
             Texture = new Texture(Path.GetDirectoryName(path) + "/" + imagePath);
-            int lineNum = 1;
+            int lineNum = 2;
             while (!sr.EndOfStream)
             {
                 String line = sr.ReadLine();
@@ -47,10 +49,33 @@ namespace Simcity3000_2
                     sprites.Add(
                         parts[4].Trim(),
                         new IntRect(
-                            int.Parse(parts[0]),
-                            int.Parse(parts[1]),
-                            int.Parse(parts[2]),
-                            int.Parse(parts[3])));
+                            getInt(parts[0]),
+                            getInt(parts[1]),
+                            getInt(parts[2]),
+                            getInt(parts[3])));
+                }
+            }
+
+            int getInt(string str)
+            {
+                if (!int.TryParse(str, out int result))
+                {
+                    return symbols[str.Trim()];
+                }
+                return result;
+            }
+
+            void loadSymbols(string line)
+            {
+                symbols = new Dictionary<string, int>();
+                string[] defs = line.Split(',');
+                foreach (var def in defs)
+                {
+                    string[] parts = def.Split('=');
+                    if (parts.Length == 2)
+                    {
+                        symbols.Add(parts[0].Trim(), getInt(parts[1]));
+                    }
                 }
             }
         }

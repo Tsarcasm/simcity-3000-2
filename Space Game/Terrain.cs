@@ -67,11 +67,11 @@ namespace Simcity3000_2
             };
         }
 
-        public int MaxHeight(int x, int y)
+        public int MinHeight(int x, int y)
         {
-            return Math.Max(
-                Math.Max(Heightmap[x, y], Heightmap[x, y + 1]),
-                Math.Max(Heightmap[x + 1, y + 1], Heightmap[x + 1, y]));
+            return Math.Min(
+                Math.Min(Heightmap[x, y], Heightmap[x, y + 1]),
+                Math.Min(Heightmap[x + 1, y + 1], Heightmap[x + 1, y]));
         }
 
 
@@ -81,15 +81,8 @@ namespace Simcity3000_2
             //Quad start index, 2d array to 1d array transformation 
             //Multiply by 4 as there are 4 vertices for each quad
             uint q = (uint)((Width - 1 - x + y * Height) * 4);
-            /*
-              1--2
-              |  |
-              0--3
 
-             */
-            Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
-
-            IntRect texCoords = terrainSprites.GetSprite(Tiles[x, y].GroundSprite);
+            IntRect texCoords = terrainSprites.GetSprite(GetTileName(x,y));
 
             Vector2f[] tileVertices = GetTileVertices(x, y);
 
@@ -137,6 +130,7 @@ namespace Simcity3000_2
             // draw the vertex array
             vertices.PrimitiveType = PrimitiveType.Quads;
             target.Draw(vertices, states);
+            //vertices.PrimitiveType = PrimitiveType.Lines;
             //target.Draw(vertices, states);
 
         }
@@ -160,10 +154,6 @@ namespace Simcity3000_2
             }
             return (Vector2i)new Vector2f(x, y);
 
-
-
-            //float X = (coords.X - OffsetX / 2) / (OffsetX * 1);
-            //float Y = (coords.Y - OffsetY / 2) / (OffsetY * 1);
         }
 
         public void SetTileHeight(Vector2i pos, int height)
@@ -177,18 +167,63 @@ namespace Simcity3000_2
             Heightmap[x + 1, y + 1] = height;
             MakeQuads();
         }
+
+        static readonly string[] slopes =
+        {
+            "flat", // 0000
+            "corner_s", // 0001
+            "corner_w", //0010
+            "slope_s", //0011
+            "corner_n", //0100
+            "saddle_ns", //0101
+            "slope_w", //0110
+            "corner_slope_w", //0111
+            "corner_e", //1000
+            "slope_e", //1001
+            "saddle_ew", //1010
+            "corner_slope_s", //1011
+            "slope_n", //1100
+            "corner_slope_e", //1101
+            "corner_slope_n", //1110
+            "high", //1111
+        };
+
+
+        public string GetTileName(int x, int y)
+        {
+            //Get the coordinates of each vertex 
+            int min = MinHeight(x, y);
+            int n = Heightmap[x + 1, y] > min? 0xF : 0;
+            int e = Heightmap[x + 1, y + 1] > min ? 0xF : 0;
+            int s = Heightmap[x, y + 1] > min ? 0xF : 0;
+            int w = Heightmap[x, y] > min ? 0xF : 0;
+            // Construct a bitmask to find the appropriate slope
+            string p = slopes[(0b0001 & n) | (0b0010 & e) | (0b0100 & s) | (0b1000 & w)];
+            return p ;
+
+        }
+
+
+
+
         public Vector2f[] GetTileVertices(int x, int y)
         {
             Vector2f[] coords = new Vector2f[4];
             if (InBounds(x, y))
             {
-                Vector2f start = new Vector2f(y * OffsetX + x * OffsetX, x * -OffsetY + y * OffsetY);
+                Vector2f start = new Vector2f(y * 16 + x * 16, x * -8 + y * 8);
                 const int heightMod = -10;
                 int[] heights = GetTileHeights(x, y);
-                coords[0] = start + new Vector2f(0, heights[0] * heightMod);
-                coords[1] = start + new Vector2f(OffsetX, OffsetY + heights[1] * heightMod);
-                coords[2] = start + new Vector2f(OffsetX * 2, 0 + heights[2] * heightMod);
-                coords[3] = start + new Vector2f(OffsetX, -OffsetY + heights[3] * heightMod);
+                start += new Vector2f(0, MinHeight(x, y) * -8);
+                //coords[0] = start + new Vector2f(0, -OffsetY);
+                //coords[1] = start + new Vector2f(2 * OffsetX, -OffsetY);
+                //coords[2] = start + new Vector2f(2 * OffsetX, -2 * OffsetY);
+                //coords[3] = start + new Vector2f(0, -2 * OffsetY);
+                coords[0] = start + new Vector2f(0, 0);
+                coords[1] = start + new Vector2f(32, 0);
+                coords[2] = start + new Vector2f(32, 32);
+                coords[3] = start + new Vector2f(0, 32);
+
             }
             return coords;
         }

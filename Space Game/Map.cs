@@ -20,7 +20,7 @@ namespace Simcity3000_2
             Height = height;
             Tiles = new Tile[width, height];
             SetupTiles();
-            terrain = new IsoTerrain(width, height, 50, terrainSprites, Tiles);
+            terrain = new IsoTerrain(width, height, 19, terrainSprites, Tiles);
 
         }
 

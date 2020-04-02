@@ -1,0 +1,18 @@
+﻿tiles.png
+#=32, w=#, h=#
+0,0,#,#,flat
+32,0,#,#,high
+64,0,#,#,saddle_ew
+96,0,#,#,saddle_ns
+0,32,#,#,slope_n
+32,32,#,#,slope_e
+64,32,#,#,slope_s
+96,32,#,#,slope_w
+0,64,#,#,corner_n
+32,64,#,#,corner_e
+64,64,#,#,corner_s
+96,64,#,#,corner_w
+0,96,#,#,corner_slope_n
+32,96,#,#,corner_slope_e
+64,96,#,#,corner_slope_s
+96,96,#,#,corner_slope_w
